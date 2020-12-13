@@ -104,97 +104,8 @@
    ))
 
 ;; Second part
-
-;; There must be a pattern. The hint was that
-;; running this brute force won't work. ("trillions")
-(distinct-ways '()) ;; 1
-(distinct-ways '(1)) ;; 1, and actually (1 4)
-(distinct-ways '(1 2)) ;; 2 and actually (1 2 5)
-(distinct-ways '(1 2 3)) ;; 4
-(distinct-ways '(1 2 3 4)) ;; 7
-(distinct-ways '(1 2 3 4 5)) ;; 13
-(distinct-ways '(1 2 3 4 5 6)) ;; 24
-;; Which is...
-;; (+ 1 1 2) = 4
-;; (+ 1 2 4) = 7
-;; (+ 2 4 7) = 13
-;; But this is for a list of contiguous numbers.
-(distinct-ways '(0)) ;; 1
-(distinct-ways '(0 2)) ;; 1
-(distinct-ways '(0 2 4)) ;; 1
-(distinct-ways '(0 2 4 6)) ;; 1
-(distinct-ways '(0 2 4 6 8)) ;; 1
-;; Hmm.
-(distinct-ways '(0 1 2 3)) ;; 4
-(distinct-ways '(0 1 2 3 4)) ;; 7
-(distinct-ways '(0 1 2 3 5)) ;; 6 -> +1 for skip 2, and +1 for skip 3?
-(distinct-ways '(0 1 2 3 6)) ;; 4
-(distinct-ways '(0 1 2 3 4 6)) ;; 11
-(distinct-ways '(0 1 2 3 5 7)) ;; 6
-(distinct-ways '(0 1 2 3 5 7 9)) ;; 6
-(distinct-ways '(0 1 2 3 4 5)) ;; 13
-(distinct-ways '(0 1 2 3 4 5 7 10)) ;; 20
-(distinct-ways '(0 1 2 3 4 5 7 10 13)) ;; 20
-(distinct-ways '(0 1 2 3 4 5 8 11 14)) ;; 13
-(distinct-ways '(0 1 2 3 4 5 8 11 14 15)) ;; 13
-(distinct-ways '(0 1 2 3 4 5 8 10 12 14)) ;; 13
-(distinct-ways '(0 1 2 3 4 5 7 11 13 16)) ;; 0
-(distinct-ways '(0 1 2 3 4 5 7 10 13 16)) ;; 20
-(distinct-ways '(0 1 2 3 4 5 7 10 13 15)) ;; 20
-(distinct-ways '(0 1 2 3 4 5 7 10 12)) ;; 20
-;; Hm. '(1 4 5 6 7 10 11 12 15 16 19)
-(distinct-ways '(0 1 4)) ;; 1
-(distinct-ways '(0 1 4 5)) ;; 1
-(distinct-ways '(0 1 4 5 6)) ;; 2
-(distinct-ways '(0 1 4 5 6 7)) ;; 4
-(distinct-ways '(0 1 4 5 6 7 10)) ;; 4
-(distinct-ways '(0 1 4 5 6 7 10 11)) ;; 7
-(distinct-ways '(0 1 4 5 6 7 10 11 12)) ;; 8
-(distinct-ways '(0 1 4 5 6 7 10 11 12 15)) ;; 8
-(distinct-ways '(0 1 4 5 6 7 10 11 12 15 16)) ;; 8
-(distinct-ways '(0 1 4 5 6 7 10 11 12 15 16 19)) ;; 8
-(distinct-ways '(0 1 4 5 6 7 10 11 12 15 16 19 20)) ;; 8 
-(distinct-ways '(0 1 4 5 6 7 10 11 12 15 16 19 20 21)) ;; 16 (+ 8 8 1)
-(distinct-ways '(0 1 4 5 6 7 10 11 12 15 16 19 20 21 22)) ;; 32 (+ 16 8 8)
-(distinct-ways '(0 1 4 5 6 7 10 11 12 15 16 19 20 21 22 23)) ;; 56 (+ 32 16 8)
-
-;; Something to do with the length of the
-;; contiguous run.
-(distinct-ways '()) ;; 1
-(distinct-ways '(1)) ;; 1, and actually (1 4)
-(distinct-ways '(1 2)) ;; 2 and actually (1 2 5)
-(distinct-ways '(1 2 3)) ;; 4
-(distinct-ways '(1 2 3 4)) ;; 7
-(distinct-ways '(1 2 3 4 5)) ;; 13
-(distinct-ways '(1 2 3 4 5 6)) ;; 24
-(distinct-ways '(1 2 3 4 5 6 8)) ;; 37
-(distinct-ways '(1 2 3 4 5 6 8 10)) ;; 37
-(distinct-ways '(1 2 3 4 5 6 8 10 11)) ;; 74 or (+ 37 24 13)
-(distinct-ways '(1 2 3 4 5 6 8 10 11 13)) ;; 111 (+ 74 37)
-(distinct-ways '(1 2 3 4 5 6 8 10 11 13 15)) ;; 111 (+ 111)
-(distinct-ways '(1 2 3 4 5 6 8 10 11 13 15 18)) ;; 111
-(distinct-ways '(1 2 3 4 5 6 8 10 11 13 15 18 19)) ;; 111
-(distinct-ways '(1 2 3 4 5 6 8 10 11 13 15 18 19 20)) ;; 222 (+ 111 111)
-
 (define (snoc o ls)
   (reverse (cons o (reverse ls))))
-
-(define (diff-n n)
-  (λ (a b)
-    (= (abs (- a b)) n)))
-
-(define diff-one? (diff-n 1))
-(define diff-two? (diff-n 2))
-(define diff-three? (diff-n 3))
-
-(define (inc n)
-  (if (< n 3)
-      (add1 n)
-      n))
-(define (dec n)
-  (if (> n 0)
-      (sub1 n)
-      n))
 
 (define (safe-take ls n)
   (cond
@@ -203,50 +114,154 @@
      (take ls (length ls))]
     [else (take ls n)]))
 
-(define (pattern-count lon jolts [ways empty] [tc 0])
-  (printf "~a ~a ~a ~a~n" lon jolts ways tc)
+(define (generate-n-ways n [acc empty] #:prob [prob 30])
   (cond
-    [(empty? lon) (apply + (safe-take ways tc))]
+    [(<= n 0) (if (zero? (first (reverse acc)))
+                  (rest (reverse acc))
+                  (reverse acc))]
     [else
-     (define new-tc
-       (cond
-         [(diff-one? (first lon) jolts) (inc tc)]
-         [(diff-two? (first lon) jolts) (dec tc)]
-         [else  0]))
-     
-     (define new-ways
-       (cond
-         [(empty? ways) (list 1)]
-         [else
-          (cons (apply + (safe-take ways new-tc))
-                ways)]))
-     
-     (pattern-count (rest lon)
-                    (+ (abs (- (first lon) jolts)) jolts)
-                    new-ways
-                    new-tc)]
-    ))
+     (if (and (> prob (random 100)) (> n 0))
+         (generate-n-ways (- n 2) (snoc (- n 1) acc))
+         (generate-n-ways (sub1 n) (snoc n acc)))]))
 
-(define (distinct-ways-improved lon)
-  (cond
-    [(empty? lon) 1]
-    [else (pattern-count (snoc (+ 3 (largest lon)) lon) 0 empty 0)]))
+;; There must be a pattern. The hint was that
+;; running this brute force won't work. ("trillions")
+(for ([i (range 1 20)])
+  (printf "~a~a: ~a ~a ~n"
+          (if (< i 10) "0" "")
+          i
+          (range i)
+          (distinct-ways (range i))))
 
-'---
-;1 (pattern-count empty 0 (list 1) 0) ;; 1
-1 (pattern-count '(1) 0 empty 0) ;; 1
-2 (pattern-count '(1 2) 0 empty 0) ;; 1
-4 (pattern-count '(1 2 3) 0 empty 0) ;; 2
-7 (pattern-count '(1 2 3 4) 0 empty 0) ;; 2
+(define (skip-pat ls)
+  (for ([i (range 1 (length ls))])
+    (printf "~a~a: ~a~a ~a ~a ~n"
+            (if (< i 10) "0" "")
+            i
+            (if (< (list-ref ls (sub1 i)) 10) "0" "")
+            (list-ref ls (sub1 i))
+            (safe-take ls i)
+            (distinct-ways (safe-take ls i)))))
 
+;(skip-pat (generate-n-ways 20))
+;(skip-pat (generate-n-ways 20))
+;(skip-pat (generate-n-ways 20))
+
+;; If the diff is 1 1x, then add the past two
+;; If it is 1 2x or more, add the past three
+;; So, 0, 1, 2?
+(define (make-n-stack n)
+  (lambda ()
+    (for/list ([i (range n)])
+      0)))
+;; Push does not care about the stack size.
+(define (push v s)
+  ;; Drop the last, push to the  front.
+  (define sprime (reverse (rest (reverse s))))
+  (cons v sprime))
+(define (pop s)
+  (define sprime (reverse (rest (reverse s))))
+  (snoc 0 sprime))
+
+(define make-2-stack (make-n-stack 2))
+(define make-3-stack (make-n-stack 3))
+(define make-4-stack (make-n-stack 4))
 
 (module+ test
   (chk
    #:=
+   (make-2-stack)
+   '(0 0)
+   (make-3-stack)
+   '(0 0 0)
+   (push 1 (make-3-stack))
+   '(1 0 0)
+   (push 2 (push 1 (make-3-stack)))
+   '(2 1 0)))
+
+(define (diff a b)
+  (abs (- a b)))
+(define (sum ls)
+  (apply + ls))
+
+(define (one? n) (= n 1))
+(define (two? n) (= n 2))
+(define (three? n) (= n 3))
+
+(define (calc-ways dhist ways)
+  (cond
+    [(zero? (sum dhist)) ways]
+    [(one? (sum dhist)) (push (first ways) ways)]
+    [(two? (sum dhist)) (push (sum (take ways 2)) ways)]
+    [(three? (sum dhist)) (push (sum ways) ways)]
+    ))
+
+(define (calc-ways2 dhist ways)
+  (push (sum (for/list ([ndx (range (length dhist))])
+               (if (one? (list-ref dhist ndx))
+                   (list-ref ways ndx)
+                   0)))
+        ways))
+     
+
+(define (next-dhist f p dhist)
+  (define d (diff f p))
+  (cond
+    [(zero? d) (push 1 dhist)]
+    [(one? d) (push 1 dhist)]
+    [(two? d) (push 0 dhist)]
+    [(three? d) dhist]
+    ))
+     
+
+  
+(define (distinct-ways-improved lon [prev 0] [ways (push 1 (make-4-stack))] [dhist (push 1 (make-3-stack))])
+  (printf "~a p ~a w ~a dh ~a" lon prev ways dhist)  
+  (cond
+    [(empty? lon)
+     (printf "~n")
+     (printf "ways: ~a~n" ways)
+     (printf "first: ~a~n" (first ways))
+     (printf "calc: ~a~n" (calc-ways dhist ways))
+     (printf "sum: ~a~n" (sum ways))
+     (printf "s2 : ~a~n" (sum (calc-ways dhist ways)))
+     (sum (calc-ways dhist ways))]
+    [else
+     (printf " a ~a b ~a~n" (first lon) prev)
+     (define next-dh (next-dhist (first lon) prev dhist))
+     (distinct-ways-improved (rest lon)
+                             (first lon)
+                             (calc-ways next-dh ways)
+                             next-dh)]
+    ))
+
+(for ([ls (list (range 1 2) (range 1 3) (range 1 4) (range 1 5))])
+  (for ([fun (list distinct-ways distinct-ways-improved)])
+    (printf "~a: ~a~n" fun (fun ls))))
+
+(define ls '(1 2 3 5 6 7))
+(distinct-ways ls)
+(distinct-ways-improved ls)
+(set! ls '(1 2 3 5 6 7 9 10))
+(distinct-ways ls)
+(distinct-ways-improved ls)
+
+
+(for ([i (range 10)])
+  (define ls (generate-n-ways 20))
+  (printf ":: ~a :: ~n" ls)
+  (printf "~a ~a~n" (distinct-ways ls) (distinct-ways-improved ls)))
+
+#;(module+ test
+  (chk
+   #:=
+   (distinct-ways (sort t1 <))
+   8
    (distinct-ways-improved (sort t1 <))
    8
-   (distinct-ways-improved (sort t2 <))
-   19208
+   ;(distinct-ways-improved (sort t2 <))
+   ;19208
    ))
+
 ;; Part 2
 ;;(distinct-ways-improved (sort d1 <))
