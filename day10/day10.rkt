@@ -103,165 +103,172 @@
    19208
    ))
 
-;; Second part
-(define (snoc o ls)
-  (reverse (cons o (reverse ls))))
+;; Part two.
 
-(define (safe-take ls n)
-  (cond
-    [(zero? n) (take ls 1)]
-    [(< (length ls) n)
-     (take ls (length ls))]
-    [else (take ls n)]))
+;; There's a pattern. It's either a series or a state machine.
 
-(define (generate-n-ways n [acc empty] #:prob [prob 30])
+(define l1 '(1))
+(define l2 '(1 2))
+(define l3 '(1 2 3))
+(define l4 '(1 2 3 4))
+(define l5 '(1 2 4))
+(define l6 '(1 2 4 5))
+(define l6a '(1 2 4 5 7))
+(define l7 '(1 2 3 6 7))
+(define l8 '(1 2 3 6 8))
+(define l8a '(1 2 3 6 8 9))
+(define l8b '(1 2 3 6 8 10))
+(define l9 '(1 2 3 6 9))
+(define l10 '(1 2 3 6 9 12))
+
+;; How do these behave?
+
+(define (diff a b)
+  (abs (- a b)))
+
+(define (list-of-diffs lon [prev 0])
   (cond
-    [(<= n 0) (if (zero? (first (reverse acc)))
-                  (rest (reverse acc))
-                  (reverse acc))]
+    [(empty? lon) '()]
     [else
-     (if (and (> prob (random 100)) (> n 0))
-         (generate-n-ways (- n 2) (snoc (- n 1) acc))
-         (generate-n-ways (sub1 n) (snoc n acc)))]))
-
-;; There must be a pattern. The hint was that
-;; running this brute force won't work. ("trillions")
-(for ([i (range 1 20)])
-  (printf "~a~a: ~a ~a ~n"
-          (if (< i 10) "0" "")
-          i
-          (range i)
-          (distinct-ways (range i))))
-
-(define (skip-pat ls)
-  (for ([i (range 1 (length ls))])
-    (printf "~a~a: ~a~a ~a ~a ~n"
-            (if (< i 10) "0" "")
-            i
-            (if (< (list-ref ls (sub1 i)) 10) "0" "")
-            (list-ref ls (sub1 i))
-            (safe-take ls i)
-            (distinct-ways (safe-take ls i)))))
-
-;(skip-pat (generate-n-ways 20))
-;(skip-pat (generate-n-ways 20))
-;(skip-pat (generate-n-ways 20))
-
-;; If the diff is 1 1x, then add the past two
-;; If it is 1 2x or more, add the past three
-;; So, 0, 1, 2?
-(define (make-n-stack n)
-  (lambda ()
-    (for/list ([i (range n)])
-      0)))
-;; Push does not care about the stack size.
-(define (push v s)
-  ;; Drop the last, push to the  front.
-  (define sprime (reverse (rest (reverse s))))
-  (cons v sprime))
-(define (pop s)
-  (define sprime (reverse (rest (reverse s))))
-  (snoc 0 sprime))
-
-(define make-2-stack (make-n-stack 2))
-(define make-3-stack (make-n-stack 3))
-(define make-4-stack (make-n-stack 4))
+     (cons (diff (first lon) prev)
+           (list-of-diffs (rest lon) (first lon)))]))
 
 (module+ test
   (chk
    #:=
-   (make-2-stack)
-   '(0 0)
-   (make-3-stack)
-   '(0 0 0)
-   (push 1 (make-3-stack))
-   '(1 0 0)
-   (push 2 (push 1 (make-3-stack)))
-   '(2 1 0)))
+   (list-of-diffs l1)
+   '(1)
+   (list-of-diffs l2)
+   '(1 1)
+   (list-of-diffs l3)
+   '(1 1 1)
+   (list-of-diffs l5)
+   '(1 1 2)
+   (list-of-diffs l6)
+   '(1 1 2 1)
+   ))
 
-(define (diff a b)
-  (abs (- a b)))
+(define (slice l offset n)
+  (define dropped (drop l offset))
+  (cond
+    [(>= n (length dropped))
+     (take dropped (length dropped))]
+    [else
+     (take dropped n)]))
+
+(define (get-window ls ndx num)
+  (cond
+    [(< (length ls) num) ls]
+    [(< ndx num) (take ls (add1 ndx))]
+    [else
+     (slice ls (add1 (- ndx num)) num)]))
+
+(module+ test
+  (define test-ls '(1 2 3 4 5 6 7 8))
+  (chk
+   #:=
+   (get-window test-ls 3 3)
+   '(2 3 4)
+   (get-window test-ls 2 3)
+   '(1 2 3)
+   (get-window test-ls 0 3)
+   '(1)
+   ))
+
 (define (sum ls)
   (apply + ls))
 
-(define (one? n) (= n 1))
-(define (two? n) (= n 2))
-(define (three? n) (= n 3))
+(define (snoc o ls)
+  (reverse (cons o (reverse ls))))
 
-(define (calc-ways dhist ways)
+(define (clamp n low high)
   (cond
-    [(zero? (sum dhist)) ways]
-    [(one? (sum dhist)) (push (first ways) ways)]
-    [(two? (sum dhist)) (push (sum (take ways 2)) ways)]
-    [(three? (sum dhist)) (push (sum ways) ways)]
-    ))
+    [(<= n low) low]
+    [(>= n high) high]
+    [else n]))
 
-(define (calc-ways2 dhist ways)
-  (push (sum (for/list ([ndx (range (length dhist))])
-               (if (one? (list-ref dhist ndx))
-                   (list-ref ways ndx)
-                   0)))
-        ways))
-     
-
-(define (next-dhist f p dhist)
-  (define d (diff f p))
+(define (running-sums lon lod [acc (list 1)] [ndx 0] [prev-diff 1] [how-many 3])
   (cond
-    [(zero? d) (push 1 dhist)]
-    [(one? d) (push 1 dhist)]
-    [(two? d) (push 0 dhist)]
-    [(three? d) dhist]
-    ))
-     
-
-  
-(define (distinct-ways-improved lon [prev 0] [ways (push 1 (make-4-stack))] [dhist (push 1 (make-3-stack))])
-  (printf "~a p ~a w ~a dh ~a" lon prev ways dhist)  
-  (cond
-    [(empty? lon)
-     (printf "~n")
-     (printf "ways: ~a~n" ways)
-     (printf "first: ~a~n" (first ways))
-     (printf "calc: ~a~n" (calc-ways dhist ways))
-     (printf "sum: ~a~n" (sum ways))
-     (printf "s2 : ~a~n" (sum (calc-ways dhist ways)))
-     (sum (calc-ways dhist ways))]
+    [(empty? lon) acc]
     [else
-     (printf " a ~a b ~a~n" (first lon) prev)
-     (define next-dh (next-dhist (first lon) prev dhist))
-     (distinct-ways-improved (rest lon)
-                             (first lon)
-                             (calc-ways next-dh ways)
-                             next-dh)]
-    ))
+     (define this-diff (list-ref lod ndx))
+     (define new-how-many
+       (cond
+         [(and (= this-diff 1)
+               (= prev-diff 1)) (clamp (add1 how-many) 1 3)]
+         [(and (= this-diff 1)
+               (= prev-diff 2)) 2]
+         [(and (= this-diff 1)
+               (= prev-diff 3)) 1]
+         [(and (= this-diff 2)
+               (= prev-diff 1)) 2]
+         [(and (= this-diff 2)
+               (= prev-diff 2)) how-many]
+         [(and (= this-diff 3)
+               (= prev-diff 3)) 1]
+         [else 1]
+         ))
+     (define new-sum (sum (get-window acc ndx new-how-many)))
+     (running-sums (rest lon) lod (snoc new-sum acc) (add1 ndx) (list-ref lod ndx) new-how-many)
+     ]))
 
-(for ([ls (list (range 1 2) (range 1 3) (range 1 4) (range 1 5))])
-  (for ([fun (list distinct-ways distinct-ways-improved)])
-    (printf "~a: ~a~n" fun (fun ls))))
 
-(define ls '(1 2 3 5 6 7))
-(distinct-ways ls)
-(distinct-ways-improved ls)
-(set! ls '(1 2 3 5 6 7 9 10))
-(distinct-ways ls)
-(distinct-ways-improved ls)
+(define (distinct-ways-improved lon)
+  (define diffs (list-of-diffs lon))
+  (define rs (running-sums lon diffs))
+  ;;(printf "l: ~a~n" lon)
+  ;;(printf "d: ~a~n" diffs)
+  ;;(printf "s: ~a~n" rs)
+  (first (reverse rs))
+  )
 
-
-(for ([i (range 10)])
-  (define ls (generate-n-ways 20))
-  (printf ":: ~a :: ~n" ls)
-  (printf "~a ~a~n" (distinct-ways ls) (distinct-ways-improved ls)))
-
-#;(module+ test
+(module+ test
   (chk
    #:=
+   (distinct-ways l1)
+   (distinct-ways-improved l1)
+
+   (distinct-ways l2)
+   (distinct-ways-improved l2)
+
+   (distinct-ways l3)
+   (distinct-ways-improved l3)
+
+   (distinct-ways l4)
+   (distinct-ways-improved l4)
+
+   (distinct-ways l5)
+   (distinct-ways-improved l5)
+
+   (distinct-ways l6)
+   (distinct-ways-improved l6)
+
+   (distinct-ways l6a)
+   (distinct-ways-improved l6a)
+
+   (distinct-ways l7)
+   (distinct-ways-improved l7)
+
+   (distinct-ways l8)
+   (distinct-ways-improved l8)
+
+   (distinct-ways l8a)
+   (distinct-ways-improved l8a)
+
+   (distinct-ways l8b)
+   (distinct-ways-improved l8b)
+
+   (distinct-ways l9)
+   (distinct-ways-improved l9)
+
+   (distinct-ways l10)
+   (distinct-ways-improved l10)
+
    (distinct-ways (sort t1 <))
-   8
    (distinct-ways-improved (sort t1 <))
-   8
-   ;(distinct-ways-improved (sort t2 <))
-   ;19208
+
+   (distinct-ways (sort t2 <))
+   (distinct-ways-improved (sort t2 <))
    ))
 
-;; Part 2
-;;(distinct-ways-improved (sort d1 <))
+(distinct-ways-improved (sort d1 <))
