@@ -58,7 +58,6 @@
 
 ;; Part 2
 (define (slice l offset n)
-  ;;(printf "n: ~a~n" n)
   (take (drop l offset) n))
 
 (define (replace ls loc o)
