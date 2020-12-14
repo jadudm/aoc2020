@@ -281,4 +281,5 @@
    37))
 
 ;; Part 1
-;(count-occupied (stabilize large-map))
+(define stabilized (stabilize large-map))
+(count-occupied stabilized)
