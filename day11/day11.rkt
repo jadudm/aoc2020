@@ -1,6 +1,7 @@
 #lang racket
 (require racket/file
-         racket/runtime-path)
+         racket/runtime-path
+         racket/performance-hint)
 
 (define (->symbol o)
   (string->symbol (format "~a" (if (equal? o #\.) "_" o))))
@@ -16,9 +17,9 @@
 
 (define (chart-evo ch)
   (vector-ref ch 0))
-(define (chart-rows ch)
+(define-inline (chart-rows ch)
   (vector-ref ch 1))
-(define (chart-columns ch)
+(define-inline (chart-columns ch)
   (vector-ref ch 2))
 (define (chart-linear ch)
   (vector-ref ch 3))
@@ -46,7 +47,7 @@
 (define-runtime-path f2 "large.map")
 (define large-map (->chart (file->lines f2 #:mode 'text)))
 
-(define (rc->ndx ch r c)
+(define-inline (rc->ndx ch r c)
   (+ (* r (chart-rows ch)) c))
 
 (define (lookup ch r c)
@@ -74,7 +75,8 @@
 
 (define (set-seat! ch r c v)
   (vector-set! (chart-linear ch) (rc->ndx ch r c) v)
-  (set-chart-evo! ch (add1 (chart-evo ch))))
+  ;;(set-chart-evo! ch (add1 (chart-evo ch)))
+  )
 
 (module+ test
   (check-equal?
@@ -157,8 +159,8 @@
 (define (occupied-seat? s)
   (equal? s 'o))
         
-(define (rules ch r c)
-  (define currently (lookup ch r c))
+(define (rules ch r c currently)
+  ;; (define currently (lookup ch r c))
   (cond
     [(and (empty-seat? currently)
           (all-clear? ch r c))
@@ -171,7 +173,8 @@
 (define (advance ch new-ch)
   (for ([r (chart-rows ch)])
     (for ([c (chart-columns ch)])
-      (case (rules ch r c)
+      (define v (lookup ch r c))
+      (case (rules ch r c v)
         [(occupied)
          (set-seat! new-ch r c 'o)
          ]
@@ -179,7 +182,7 @@
          (set-seat! new-ch r c 'L)
          ]
         [(pass)
-         (set-seat! new-ch r c (lookup ch r c))
+         (set-seat! new-ch r c v)
          ])
       ))
   (set-chart-evo! new-ch (add1 (chart-evo ch)))
