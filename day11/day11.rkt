@@ -5,12 +5,41 @@
 (define (->symbol o)
   (string->symbol (format "~a" (if (equal? o #\.) "_" o))))
 
-(struct chart (evo rows columns linear) #:transparent #:mutable)
+(define make-chart
+  (case-lambda
+    [(evo r c ls)
+     (list->vector (list evo r c (if (list? ls) (list->vector ls) ls)))]
+    [(r c)
+     (list->vector (append (list 0 r c (make-vector (* r c) '_))))]
+    [(ch)
+     (make-chart (chart-rows ch) (chart-columns ch))]))
 
+(define (chart-evo ch)
+  (vector-ref ch 0))
+(define (chart-rows ch)
+  (vector-ref ch 1))
+(define (chart-columns ch)
+  (vector-ref ch 2))
+(define (chart-linear ch)
+  (vector-ref ch 3))
+(define (set-chart-evo! ch v)
+  (vector-set! ch 0 v))
+(define (set-chart-linear! ch v)
+  (vector-set! ch 3 v))
 (define (->chart lines)
   (let ([raw lines])
-    (chart 0 (length raw) (string-length (first raw))
-           (map ->symbol (apply append (map string->list raw))))))
+    (make-chart 0 (length raw) (string-length (first raw))
+                (map ->symbol (apply append (map string->list raw))))))
+
+(define (copy-map m)
+  (define new-v (make-vector (vector-length m)))
+  (define new-m (make-vector (vector-length (chart-linear m))))
+  (for ([ndx (vector-length (chart-linear m))])
+    (vector-set! new-m ndx (vector-ref (chart-linear m) ndx)))
+  (for ([ndx (vector-length m)])
+    (vector-set! new-v ndx (vector-ref m ndx)))
+  (vector-set! new-v 3 new-m)
+  new-v)
 
 (define-runtime-path f1 "small.map")
 (define small-map (->chart (file->lines f1 #:mode 'text)))
@@ -28,75 +57,76 @@
          (< c 0))
      '_]
     [else
-     (list-ref (chart-linear ch) (rc->ndx ch r c))]))
+     (vector-ref (chart-linear ch) (rc->ndx ch r c))]))
 
 (module+ test
-  (require chk)
-  (chk
-   #:=
+  (require rackunit)
+  (check-equal?
    (lookup small-map 0 0)
-   'L
+   'L)
+  (check-equal?
    (lookup small-map 0 1)
-   '_
+   '_)
+  (check-equal?
    (lookup small-map 9 9)
-   'L
-   ))
+   'L)
+  )
 
 (define (set-seat! ch r c v)
-  (define new-seating
-    (list-set (chart-linear ch) (rc->ndx ch r c) v))
-  (set-chart-evo! ch (add1 (chart-evo ch)))
-  (set-chart-linear! ch new-seating))
-
-(define (set-seat ch r c v)
-  (define new-seating
-    (list-set (chart-linear ch) (rc->ndx ch r c) v))
-  (chart (add1 (chart-evo ch))
-         (chart-rows ch)
-         (chart-columns ch)
-         new-seating))
+  (vector-set! (chart-linear ch) (rc->ndx ch r c) v)
+  (set-chart-evo! ch (add1 (chart-evo ch))))
 
 (module+ test
-  (chk
-   #:=
-   (set-seat small-map 0 0 'x)
-   (chart 1 10 10 '(x _ L L _ L L _ L L
-                      L L L L L L L _ L L
-                      L _ L _ L _ _ L _ _
-                      L L L L _ L L _ L L
-                      L _ L L _ L L _ L L
-                      L _ L L L L L _ L L
-                      _ _ L _ L _ _ _ _ _
-                      L L L L L L L L L L
-                      L _ L L L L L L _ L
-                      L _ L L L L L _ L L))
+  (check-equal?
+   (let ()
+     (define new-m (copy-map small-map))
+     (set-seat! new-m 0 0 'x)
+     (chart-linear new-m))
+   (list->vector
+    '(x _ L L _ L L _ L L
+        L L L L L L L _ L L
+        L _ L _ L _ _ L _ _
+        L L L L _ L L _ L L
+        L _ L L _ L L _ L L
+        L _ L L L L L _ L L
+        _ _ L _ L _ _ _ _ _
+        L L L L L L L L L L
+        L _ L L L L L L _ L
+        L _ L L L L L _ L L)))
 
-   (set-seat small-map 9 9 'x)
-   (chart 1 10 10 '(L _ L L _ L L _ L L
-                      L L L L L L L _ L L
-                      L _ L _ L _ _ L _ _
-                      L L L L _ L L _ L L
-                      L _ L L _ L L _ L L
-                      L _ L L L L L _ L L
-                      _ _ L _ L _ _ _ _ _
-                      L L L L L L L L L L
-                      L _ L L L L L L _ L
-                      L _ L L L L L _ L x))
-   ))
+  (check-equal?
+   (let ()
+     (define new-m (copy-map small-map))
+     (set-seat! new-m 9 9 'x)
+     (chart-linear new-m))
+   (list->vector
+    '(L _ L L _ L L _ L L
+        L L L L L L L _ L L
+        L _ L _ L _ _ L _ _
+        L L L L _ L L _ L L
+        L _ L L _ L L _ L L
+        L _ L L L L L _ L L
+        _ _ L _ L _ _ _ _ _
+        L L L L L L L L L L
+        L _ L L L L L L _ L
+        L _ L L L L L _ L x)))
+  )
 
-(define (empty-chart r c)
-  (chart 0 r c (make-list (* r c) 'L)))
+(define empty-chart
+  (case-lambda
+    [(r c)
+     (make-chart r c)]
+    [(ch)
+     (make-chart ch)]))
 
 (module+ test
-  (chk
-   #:=
+  (check-equal?
    (empty-chart 2 2)
-   (chart 0 2 2 '(L L L L))
+   (make-chart 0 2 2 (list->vector '(_ _ _ _))))
+  (check-equal?
    (empty-chart 3 3)
-   (chart 0 3 3 '(L L L
-                    L L L
-                    L L L))
-   ))
+   (make-chart 0 3 3 (list->vector '(_ _ _ _ _ _ _ _ _))))
+  )
 
 (define (empty-seat? s)
   (equal? s 'L))
@@ -138,22 +168,21 @@
      'empty]
     [else 'pass]))
 
-(define (advance ch)
-  (define new-ch (empty-chart (chart-rows ch)
-                              (chart-columns ch)))
+(define (advance ch new-ch)
   (for ([r (chart-rows ch)])
     (for ([c (chart-columns ch)])
       (case (rules ch r c)
         [(occupied)
          (set-seat! new-ch r c 'o)
-         'occupied]
+         ]
         [(empty)
          (set-seat! new-ch r c 'L)
-         'empty]
-        [else
+         ]
+        [(pass)
          (set-seat! new-ch r c (lookup ch r c))
-         'pass])
-      ))  
+         ])
+      ))
+  (set-chart-evo! new-ch (add1 (chart-evo ch)))
   new-ch
   )
 
@@ -163,42 +192,76 @@
       (printf "~a " (lookup ch r c)))
     (printf "~n")))
 
+(define (chart->string ch)
+  (define os (open-output-string))
+  (parameterize ([current-output-port os])
+    (draw-chart ch))
+  (get-output-string os))
+
 (module+ test
-  (chk
-   #:=
-   (chart-linear (advance small-map))
-   '(o _ o o _ o o _ o o 
-       o o o o o o o _ o o 
-       o _ o _ o _ _ o _ _ 
-       o o o o _ o o _ o o 
-       o _ o o _ o o _ o o 
-       o _ o o o o o _ o o 
-       _ _ o _ o _ _ _ _ _ 
-       o o o o o o o o o o 
-       o _ o o o o o o _ o 
-       o _ o o o o o _ o o)
+  (define new-ch (empty-chart (chart-rows small-map)
+                              (chart-columns small-map)))
+  (check-equal?
+   (let ()
+     (define tmp (empty-chart small-map))
+     (advance small-map tmp)
+     (chart->string tmp))
+   (apply
+    string-append
+    (map (λ (s) (format "~a ~n" s))
+         (list 
+          "o _ o o _ o o _ o o"
+          "o o o o o o o _ o o"
+          "o _ o _ o _ _ o _ _"
+          "o o o o _ o o _ o o"
+          "o _ o o _ o o _ o o"
+          "o _ o o o o o _ o o"
+          "_ _ o _ o _ _ _ _ _" 
+          "o o o o o o o o o o" 
+          "o _ o o o o o o _ o" 
+          "o _ o o o o o _ o o"))))
+  (check-equal?
+   (let ()
+     (define tmp (empty-chart small-map))
+     (define tmp2 (empty-chart small-map))
+     (advance (advance small-map tmp)
+              tmp2)
+     (chart->string tmp2))
+   (apply
+    string-append
+    (map (λ (s) (format "~a ~n" s))
+         (list
+          "o _ L L _ L o _ o o"
+          "o L L L L L L _ L o" 
+          "L _ L _ L _ _ L _ _" 
+          "o L L L _ L L _ L o" 
+          "o _ L L _ L L _ L L" 
+          "o _ L L L L o _ o o" 
+          "_ _ L _ L _ _ _ _ _" 
+          "o L L L L L L L L o" 
+          "o _ L L L L L L _ L"
+          "o _ o L L L L _ o o"))))
+  )
 
-   (chart-linear
-    (advance (advance small-map)))
-   '(o _ L L _ L o _ o o 
-       o L L L L L L _ L o 
-       L _ L _ L _ _ L _ _ 
-       o L L L _ L L _ L o 
-       o _ L L _ L L _ L L 
-       o _ L L L L o _ o o 
-       _ _ L _ L _ _ _ _ _ 
-       o L L L L L L L L o 
-       o _ L L L L L L _ L 
-       o _ o L L L L _ o o)
-   ))
-
-(define (stabilize ch)
-  (define next (advance ch))
-  (cond
-    [(equal? (chart-linear ch)
-             (chart-linear next))
-     ch]
-    [else (stabilize next)]))
+(define (stabilize ch1)
+  (define ch2 (empty-chart ch1))
+  (let loop ([tick 0])
+    ;;(printf "--- ~a ---~n" tick)
+    (cond
+      [(even? tick)
+       ;;(printf (chart->string ch1))
+       (advance ch1 ch2)]
+      [else
+       ;;(printf (chart->string ch2))
+       (advance ch2 ch1)])
+    (unless (equal? (chart-linear ch1)
+                    (chart-linear ch2))
+      ;;(printf "~n")
+      (loop (add1 tick))))
+  
+  (if (> (chart-evo ch1)
+         (chart-evo ch2))
+      ch1 ch2))
 
 
 (define (count ch sym)
@@ -213,10 +276,9 @@
   (count ch 'o))
 
 (module+ test
-  (chk
-   #:=
+  (check-equal?
    (count-occupied (stabilize small-map))
    37))
 
 ;; Part 1
-(count-occupied (stabilize large-map))
+;(count-occupied (stabilize large-map))
